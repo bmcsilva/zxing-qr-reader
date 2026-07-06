@@ -1,74 +1,56 @@
 # zxing-qr-reader
 
-An Android QR-code reader built with Qt 6 / QML. It shows the decoded value in
-full — never truncated — and lets you select and copy it. Decoding is done by
-the **ZXing** library.
-
-## What it does
-
-- **Camera screen** — opens the camera with a viewfinder and a sweeping line.
-  As soon as `QrScanner` (C++ + ZXing) recognises a code, it moves to the
-  result screen.
-- **Result screen** — the value is shown in a text area that wraps and scrolls,
-  so long payloads are never cut off. From here you can:
-  - **Select all** and **Copy** to the clipboard;
-  - **Open link** when the value is a URL;
-  - go **back** to the camera.
-
-## Notes
-
-- **Automatic language.** UI strings are written in English; translations for
-  Portuguese (pt-PT), Spanish, French and British English live in
-  [i18n/](i18n/). On start-up `main.cpp` loads the one matching the device
-  language.
-- **Light / dark theme.** Follows the device setting and can be pinned with the
-  sun/moon button. All colours live in [Theme.qml](Theme.qml).
-- **Camera permission.** Handled in C++ by [Platform](src/platform.h): granted
-  immediately on desktop, requested from the system on Android. The CAMERA
-  permission is injected automatically by linking Qt Multimedia; the
-  [android/](android) folder only supplies the icon and app name.
-- **Demo shortcut (F5).** In debug builds, pressing `F5` fakes a scan and opens
-  the result screen without needing a real code in front of the camera. Each
-  press uses a different sample (URL, Wi-Fi, vCard). It is disabled in release
-  builds.
-
-## Layout
-
-```
-zxing-qr-reader/
-├── CMakeLists.txt
-├── main.cpp                 start-up: language, icon, window
-├── Main.qml                 camera and result screens
-├── Theme.qml                colour palette (light/dark)
-├── src/
-│   ├── qrscanner.{h,cpp}    camera frames -> ZXing
-│   └── platform.{h,cpp}     camera permission + build info
-├── icon/appicon.png         app icon (512x512 master)
-├── android/                 launcher icon (per density) + app name
-└── i18n/                    pt-PT, es, fr, en-GB translations
-```
+An Android/desktop QR-code reader built with Qt 6 / QML. It decodes with the
+**ZXing** library and shows the value in full — never truncated — so you can
+select, copy, or open it as a link. Follows the device light/dark theme, with a
+manual sun/moon toggle.
 
 ## Build and run
 
-Needs Qt 6.10+ and a C++20 compiler. ZXing is fetched automatically by CMake
-(the first configure needs network access). `qt-cmake` is the `qt-cmake` from
-your Qt kit, e.g. `~/Qt/6.10.3/gcc_64/bin/qt-cmake`.
+Needs **Qt 6.10+** and a **C++20** compiler. ZXing is fetched automatically on
+the first configure (needs network access). Developed and built on **Ubuntu
+24.04**.
 
-Debug build (enables the F5 demo shortcut):
-
-```bash
-qt-cmake -S . -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug
-cmake --build build-debug
-./build-debug/qrreader
-```
-
-Release build:
+`qt-cmake` lives in your Qt kit and isn't on the PATH, so use the
+[build.sh](build.sh) wrapper — it points at the right kit and runs the
+configure + build steps for you:
 
 ```bash
-qt-cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build-release
-./build-release/qrreader
+./build.sh              # debug build (enables the F5 "fake scan" shortcut)
+./build.sh release      # release build
+./build.sh debug run    # build, then launch
 ```
 
-You can also open the folder in **Qt Creator** and hit *Run* — for Android,
-pick an Android kit and run it on the device.
+If your Qt kit isn't at `~/Qt/6.10.3/gcc_64`, point the script at it:
+`QT_DIR=~/Qt/<ver>/gcc_64 ./build.sh`.
+
+For **Android**, open the folder in **Qt Creator**, pick an Android kit, and Run.
+
+## Signing an Android release
+
+Android only installs/publishes a **signed** APK/AAB. Debug builds use a
+throwaway key automatically; a release needs your own permanent key. It is
+personal and secret, so it is **not** in this repo — create your own.
+
+**1. Create a keystore (once)**, kept outside the repo. `keytool` ships with the
+JDK:
+
+```bash
+mkdir -p ~/keys
+keytool -genkeypair -v -keystore ~/keys/qrreader-release.keystore \
+  -alias qrreader -keyalg RSA -keysize 2048 -validity 10000
+```
+
+> ⚠️ Back up the keystore and its password. Lose them and you can never ship an
+> update to the same Play Store app. Never commit it.
+
+**2. Sign** in Qt Creator: *Projects → Android kit → Build → Build Android APK →
+Sign package*, then build in Release (tick *Build .aab* for the Play Store). On
+the command line, `androiddeployqt` reads `QT_ANDROID_KEYSTORE_PATH`,
+`QT_ANDROID_KEYSTORE_ALIAS`, `QT_ANDROID_KEYSTORE_STORE_PASS` and
+`QT_ANDROID_KEYSTORE_KEY_PASS`.
+
+**3. Before publishing:** set your own `package` id in
+[android/AndroidManifest.xml](android/AndroidManifest.xml) (reverse-domain, e.g.
+`com.yourname.qrreader` — it can't change once published) and bump `versionCode`
+on every upload.
