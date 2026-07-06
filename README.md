@@ -17,9 +17,6 @@ the **ZXing** library.
 
 ## Notes
 
-- **App name & icon.** The launcher shows *QR Scanner* with the QR icon in
-  [icon/](icon/) (a rounded indigo tile). The same icon is used for the desktop
-  window.
 - **Automatic language.** UI strings are written in English; translations for
   Portuguese (pt-PT), Spanish, French and British English live in
   [i18n/](i18n/). On start-up `main.cpp` loads the one matching the device
