@@ -1,0 +1,479 @@
+pragma ComponentBehavior: Bound
+
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import QtQuick.Effects
+import QtMultimedia
+import QrReader
+
+ApplicationWindow {
+    id: root
+    visible: true
+    width: 420
+    height: 760
+    minimumWidth: 320
+    minimumHeight: 480
+    title: qsTr("Scan QR")
+
+    background: Rectangle {
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Theme.background }
+            GradientStop { position: 1.0; color: Theme.backgroundEdge }
+        }
+    }
+
+    // Ask for the camera as soon as the window is up.
+    Component.onCompleted: Platform.requestCamera()
+
+    // Two screens: the live camera ("scan") and the decoded value ("result").
+    property string screen: "scan"
+    property string decodedText: ""
+
+    // Sample values for the demo shortcut. Each F5 press pretends the camera
+    // just decoded the next one, so the result screen can be shown without a
+    // real code in front of the lens.
+    readonly property var demoSamples: [
+        "https://www.example.com/",
+        "WIFI:S:GuestWiFi;T:WPA;P:welcome123;;",
+        "BEGIN:VCARD\nVERSION:3.0\nFN:Jane Doe\nTEL:+1-555-0100\nEMAIL:jane@example.com\nEND:VCARD"
+    ]
+    property int demoIndex: 0
+
+    function showResult(text) {
+        root.decodedText = text
+        root.screen = "result"
+    }
+
+    function backToCamera() {
+        root.decodedText = ""
+        root.screen = "scan"
+        scanner.reset()
+    }
+
+    function playDemo() {
+        root.showResult(root.demoSamples[root.demoIndex % root.demoSamples.length])
+        root.demoIndex += 1
+    }
+
+    // Tells a link apart from plain text so we can offer the "Open link" button.
+    function looksLikeLink(text) {
+        return /^https?:\/\/\S+$/i.test(String(text).trim())
+    }
+
+    // Press F5 to fake a scan. Only wired up in debug builds.
+    Shortcut {
+        sequences: ["F5"]
+        enabled: Platform.debugBuild
+        context: Qt.ApplicationShortcut
+        onActivated: root.playDemo()
+    }
+
+    // ---- Buttons -------------------------------------------------------------
+
+    // Text button for the result screen. "kind" changes the look:
+    // "primary" is a filled accent gradient, "ghost" is a plain outline.
+    component PillButton: Button {
+        id: pill
+        property string kind: "normal"   // normal | primary | ghost
+
+        implicitHeight: 50
+        font.pixelSize: 15
+        font.weight: Font.DemiBold
+
+        contentItem: Text {
+            text: pill.text
+            font: pill.font
+            color: pill.kind === "primary" ? Theme.accentText : Theme.textStrong
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+        }
+
+        background: Rectangle {
+            radius: 14
+            border.width: pill.kind === "primary" ? 0 : 1
+            border.color: Theme.line
+            color: {
+                if (pill.kind === "primary")
+                    return "transparent"
+                if (pill.kind === "ghost")
+                    return pill.down ? Theme.surfaceAlt : "transparent"
+                return pill.down ? Theme.surfaceAlt : Theme.surface
+            }
+
+            // Accent gradient sits on top only for the primary button.
+            Rectangle {
+                anchors.fill: parent
+                radius: parent.radius
+                visible: pill.kind === "primary"
+                opacity: pill.down ? 0.85 : 1.0
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0.0; color: Theme.accent }
+                    GradientStop { position: 1.0; color: Theme.accentAlt }
+                }
+            }
+        }
+    }
+
+    // Round icon button. Over the camera it turns translucent white.
+    component RoundButton: Button {
+        id: round
+        property string glyph: ""
+        property bool onCamera: false
+
+        implicitWidth: 44
+        implicitHeight: 44
+
+        contentItem: Text {
+            text: round.glyph
+            font.pixelSize: 19
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            color: round.onCamera ? "white" : Theme.textStrong
+        }
+
+        background: Rectangle {
+            radius: height / 2
+            border.width: round.onCamera ? 0 : 1
+            border.color: Theme.line
+            color: {
+                if (round.onCamera)
+                    return round.down ? "#66000000" : "#40000000"
+                return round.down ? Theme.surfaceAlt : Theme.surface
+            }
+        }
+    }
+
+    // ---- Camera screen -------------------------------------------------------
+
+    Item {
+        id: scanView
+        anchors.fill: parent
+        opacity: root.screen === "scan" ? 1 : 0
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+
+        // Side of the square viewfinder in the middle of the screen.
+        readonly property real frame: Math.min(width, height) * 0.64
+
+        Camera {
+            id: camera
+            active: Platform.cameraGranted && root.screen === "scan" && root.visible
+        }
+
+        CaptureSession {
+            camera: camera
+            videoOutput: preview
+        }
+
+        VideoOutput {
+            id: preview
+            anchors.fill: parent
+            fillMode: VideoOutput.PreserveAspectCrop
+        }
+
+        QrScanner {
+            id: scanner
+            // The linter can't resolve the C++ QVideoSink* property type here.
+            videoSink: preview.videoSink // qmllint disable missing-type
+            active: root.screen === "scan"
+            onDecoded: function(text) { root.showResult(text) }
+        }
+
+        // With no permission there is no camera image, so paint the background.
+        Rectangle {
+            anchors.fill: parent
+            visible: !Platform.cameraGranted
+            color: Theme.background
+        }
+
+        // Dim everything except the viewfinder, spotlight style. Four panels
+        // hug the sides of the central square (siblings of "aim" so they can
+        // anchor to it).
+        Rectangle { color: "#80000000"; visible: Platform.cameraGranted; anchors { top: parent.top; left: parent.left; right: parent.right; bottom: aim.top } }
+        Rectangle { color: "#80000000"; visible: Platform.cameraGranted; anchors { top: aim.bottom; left: parent.left; right: parent.right; bottom: parent.bottom } }
+        Rectangle { color: "#80000000"; visible: Platform.cameraGranted; anchors { top: aim.top; bottom: aim.bottom; left: parent.left; right: aim.left } }
+        Rectangle { color: "#80000000"; visible: Platform.cameraGranted; anchors { top: aim.top; bottom: aim.bottom; left: aim.right; right: parent.right } }
+
+        // Title and theme toggle over the camera.
+        RowLayout {
+            anchors { top: parent.top; left: parent.left; right: parent.right; margins: 18 }
+            visible: Platform.cameraGranted
+
+            Label {
+                text: qsTr("Scan QR")
+                color: "white"
+                font.pixelSize: 21
+                font.weight: Font.Bold
+                Layout.fillWidth: true
+            }
+            RoundButton {
+                onCamera: true
+                glyph: Theme.dark ? "☀" : "☽"   // sun / moon
+                onClicked: Theme.toggle()
+            }
+        }
+
+        // Viewfinder: four rounded corner brackets and a sweeping line.
+        Item {
+            id: aim
+            width: scanView.frame
+            height: scanView.frame
+            anchors.centerIn: parent
+            visible: Platform.cameraGranted
+
+            Repeater {
+                model: 4
+                delegate: Item {
+                    required property int index
+                    width: 40
+                    height: 40
+                    // One "L" rotated 0/90/180/270° gives the four corners.
+                    x: (index === 1 || index === 2) ? aim.width - width : 0
+                    y: index >= 2 ? aim.height - height : 0
+                    rotation: index * 90
+                    Rectangle { width: parent.width; height: 5; radius: 2.5; color: Theme.accent }
+                    Rectangle { width: 5; height: parent.height; radius: 2.5; color: Theme.accent }
+                }
+            }
+
+            Item {
+                anchors.fill: parent
+                anchors.margins: 10
+                clip: true
+                Rectangle {
+                    id: sweep
+                    width: parent.width
+                    height: 3
+                    // A soft line that fades out at both ends.
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0; color: "transparent" }
+                        GradientStop { position: 0.5; color: Theme.accent }
+                        GradientStop { position: 1.0; color: "transparent" }
+                    }
+                    SequentialAnimation on y {
+                        loops: Animation.Infinite
+                        running: Platform.cameraGranted && root.screen === "scan"
+                        NumberAnimation { from: 0; to: sweep.parent.height - sweep.height; duration: 2000; easing.type: Easing.InOutQuad }
+                        NumberAnimation { from: sweep.parent.height - sweep.height; to: 0; duration: 2000; easing.type: Easing.InOutQuad }
+                    }
+                }
+            }
+        }
+
+        Label {
+            anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 48 }
+            visible: Platform.cameraGranted
+            text: qsTr("Point the camera at the QR code")
+            color: "white"
+            font.pixelSize: 15
+            font.weight: Font.Medium
+            leftPadding: 20; rightPadding: 20; topPadding: 12; bottomPadding: 12
+            background: Rectangle { radius: height / 2; color: "#59000000" }
+        }
+
+        // Shown while the camera permission is missing.
+        ColumnLayout {
+            anchors.centerIn: parent
+            width: parent.width - 72
+            spacing: 14
+            visible: !Platform.cameraGranted
+
+            Label {
+                text: "📷"   // camera emoji
+                font.pixelSize: 48
+                Layout.alignment: Qt.AlignHCenter
+            }
+            Label {
+                text: qsTr("No camera access")
+                color: Theme.textStrong
+                font.pixelSize: 20
+                font.weight: Font.Bold
+                Layout.alignment: Qt.AlignHCenter
+            }
+            Label {
+                text: qsTr("Allow camera access to scan QR codes.")
+                color: Theme.textMuted
+                font.pixelSize: 14
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+        }
+    }
+
+    // ---- Result screen -------------------------------------------------------
+
+    Item {
+        id: resultView
+        anchors.fill: parent
+        opacity: root.screen === "result" ? 1 : 0
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 20
+            spacing: 16
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+                RoundButton {
+                    glyph: "←"   // back arrow
+                    onClicked: root.backToCamera()
+                }
+                Label {
+                    text: qsTr("Content")
+                    color: Theme.textStrong
+                    font.pixelSize: 23
+                    font.weight: Font.Bold
+                    Layout.fillWidth: true
+                }
+                RoundButton {
+                    glyph: Theme.dark ? "☀" : "☽"
+                    onClicked: Theme.toggle()
+                }
+            }
+
+            // Content type + character count.
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Rectangle {
+                    radius: height / 2
+                    implicitHeight: 28
+                    implicitWidth: kindLabel.implicitWidth + 24
+                    color: root.looksLikeLink(root.decodedText) ? Theme.accent : Theme.surfaceAlt
+                    Label {
+                        id: kindLabel
+                        anchors.centerIn: parent
+                        text: root.looksLikeLink(root.decodedText) ? qsTr("Link") : qsTr("Text")
+                        color: root.looksLikeLink(root.decodedText) ? Theme.accentText : Theme.textMuted
+                        font.pixelSize: 12
+                        font.weight: Font.DemiBold
+                    }
+                }
+                Label {
+                    text: qsTr("%1 characters").arg(root.decodedText.length)
+                    color: Theme.textMuted
+                    font.pixelSize: 13
+                    Layout.fillWidth: true
+                }
+            }
+
+            // The full value: wraps, scrolls when long, and can be selected with
+            // the mouse or the keyboard. Nothing is ever truncated.
+            Rectangle {
+                id: card
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                radius: 18
+                color: Theme.surface
+                border.width: 1
+                border.color: Theme.line
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: Qt.rgba(Theme.shadow.r, Theme.shadow.g, Theme.shadow.b, Theme.dark ? 0.55 : 0.18)
+                    shadowBlur: 0.9
+                    shadowVerticalOffset: 12
+                    autoPaddingEnabled: true
+                }
+
+                ScrollView {
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    clip: true
+                    ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+                    TextArea {
+                        id: contentText
+                        text: root.decodedText
+                        readOnly: true
+                        wrapMode: TextArea.Wrap
+                        selectByMouse: true
+                        selectByKeyboard: true
+                        persistentSelection: true
+                        textFormat: TextEdit.PlainText
+                        color: Theme.textStrong
+                        font.family: "monospace"
+                        font.pixelSize: 15
+                        selectionColor: Theme.accent
+                        selectedTextColor: Theme.accentText
+                        background: null
+                    }
+                }
+            }
+
+            // Only for links.
+            PillButton {
+                Layout.fillWidth: true
+                kind: "primary"
+                visible: root.looksLikeLink(root.decodedText)
+                text: qsTr("Open link")
+                onClicked: Qt.openUrlExternally(root.decodedText.trim())
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+                PillButton {
+                    Layout.fillWidth: true
+                    text: qsTr("Select all")
+                    onClicked: {
+                        contentText.forceActiveFocus()
+                        contentText.selectAll()
+                    }
+                }
+                PillButton {
+                    Layout.fillWidth: true
+                    // Stay quiet when the link button is already the loud one.
+                    kind: root.looksLikeLink(root.decodedText) ? "normal" : "primary"
+                    text: qsTr("Copy")
+                    onClicked: {
+                        contentText.selectAll()
+                        contentText.copy()
+                        contentText.deselect()
+                        toast.flash()
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- "Copied" toast ------------------------------------------------------
+
+    Rectangle {
+        id: toast
+        anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 100 }
+        width: toastLabel.implicitWidth + 36
+        height: toastLabel.implicitHeight + 24
+        radius: height / 2
+        color: Theme.dark ? "#eef1f6" : "#111820"
+        opacity: 0
+        visible: opacity > 0
+
+        Label {
+            id: toastLabel
+            anchors.centerIn: parent
+            text: qsTr("Copied")
+            color: Theme.dark ? "#111820" : "white"
+            font.pixelSize: 14
+            font.weight: Font.DemiBold
+        }
+
+        function flash() { toastAnim.restart() }
+
+        SequentialAnimation {
+            id: toastAnim
+            NumberAnimation { target: toast; property: "opacity"; to: 1; duration: 150 }
+            PauseAnimation { duration: 1300 }
+            NumberAnimation { target: toast; property: "opacity"; to: 0; duration: 300 }
+        }
+    }
+}
