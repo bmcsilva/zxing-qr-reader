@@ -74,6 +74,9 @@ qt_add_qml_module(QrReader
     QML_FILES
         Main.qml
         Theme.qml
+    RESOURCES
+        icons/sun.png
+        icons/moon.png
     SOURCES
         src/qrscanner.h
         src/qrscanner.cpp
