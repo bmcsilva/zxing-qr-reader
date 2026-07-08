@@ -44,8 +44,14 @@ qt_add_executable(QrReader
 )
 
 # The "QrReader" module URI creates a QrReader/ folder in the build tree, which
-# would clash with an executable of the same name, so rename the binary.
-set_target_properties(QrReader PROPERTIES OUTPUT_NAME qrreader)
+# would clash with an executable of the same name, so rename the binary. On
+# Apple's case-insensitive filesystem "qrreader" still collides with QrReader/,
+# so build a .app bundle there (qrreader.app is distinct, and a bundle is the
+# correct form for a macOS/iOS GUI app anyway).
+set_target_properties(QrReader PROPERTIES
+    OUTPUT_NAME qrreader
+    MACOSX_BUNDLE $<BOOL:${APPLE}>
+)
 
 # ---- Android packaging ----
 # The android/ folder provides the launcher icon and app name. The CAMERA
