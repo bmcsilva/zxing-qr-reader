@@ -1,0 +1,80 @@
+name: Apple build
+
+# Verifies the app configures and links for macOS and iOS. We can't run the
+# Apple toolchain on Linux, so this borrows GitHub's macOS runners. The iOS job
+# builds for a real device but stops before code signing (CODE_SIGNING_ALLOWED
+# is irrelevant for a plain Ninja build), so it needs no Apple developer account
+# yet still exercises the link step — which is where the FFmpeg backend breaks.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    name: macOS (native)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: brew install ninja
+
+      - name: Install Qt (desktop)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.10.3
+          host: mac
+          target: desktop
+          arch: clang_64
+          modules: qtmultimedia
+
+      - name: Configure
+        run: >
+          "$QT_ROOT_DIR/bin/qt-cmake" -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+  ios:
+    name: iOS (cross-compile, no signing)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: brew install ninja
+
+      # The iOS kit needs a matching desktop kit for the host build tools
+      # (moc, rcc, qmlcachegen). Installing both under the same version folder
+      # lets the iOS qt-cmake find the host path automatically.
+      - name: Install Qt (desktop host tools)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.10.3
+          host: mac
+          target: desktop
+          arch: clang_64
+          modules: qtmultimedia
+
+      - name: Install Qt (iOS)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.10.3
+          host: mac
+          target: ios
+          modules: qtmultimedia
+
+      # QT_ROOT_DIR now points at the iOS kit (installed last), so its qt-cmake
+      # pulls in the iOS toolchain. Building for the device target reproduces
+      # exactly the link the colleague hit locally.
+      - name: Configure
+        run: >
+          "$QT_ROOT_DIR/bin/qt-cmake" -S . -B build-ios -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-ios

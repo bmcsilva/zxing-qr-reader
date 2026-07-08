@@ -97,6 +97,16 @@ target_link_libraries(QrReader PRIVATE
     ZXing::ZXing
 )
 
+# ---- Apple multimedia backend ----
+# On iOS/macOS Qt 6.8+ defaults to the FFmpeg media backend, but the official
+# Qt for iOS package ships the plugin stub without the FFmpeg libraries, so the
+# link fails with hundreds of undefined _av_* symbols. The app only needs the
+# camera, which the native darwin (AVFoundation) backend fully covers, so drop
+# the FFmpeg plugin from the link on Apple platforms.
+if(APPLE)
+    qt_import_plugins(QrReader EXCLUDE Qt6::QFFmpegMediaPlugin)
+endif()
+
 # ---- Translations ----
 # Compiles the .ts files to .qm and embeds them under qrc:/i18n. main.cpp then
 # loads whichever one matches the device language (English is the source).
