@@ -50,7 +50,21 @@ qt_add_executable(QrReader
 # correct form for a macOS/iOS GUI app anyway).
 set_target_properties(QrReader PROPERTIES OUTPUT_NAME qrreader)
 if(APPLE)
-    set_target_properties(QrReader PROPERTIES MACOSX_BUNDLE TRUE)
+    # Change the identifier to your own reverse-domain id before shipping.
+    set_target_properties(QrReader PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_GUI_IDENTIFIER pt.bmcsilva.qrreader
+        MACOSX_BUNDLE_BUNDLE_NAME QrReader
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+    )
+    # Camera access needs an NSCameraUsageDescription in the bundle's Info.plist
+    # or macOS/iOS kills the app on first use. macOS and iOS need different
+    # plists (iOS has its own required keys), so only macOS is wired up here.
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        set_target_properties(QrReader PROPERTIES
+            MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/platform/Info.macos.plist.in")
+    endif()
 endif()
 
 # ---- Android packaging ----
