@@ -26,6 +26,40 @@ If your Qt kit isn't at `~/Qt/6.10.3/gcc_64`, point the script at it:
 
 For **Android**, open the folder in **Qt Creator**, pick an Android kit, and Run.
 
+## Building on macOS
+
+Same `build.sh` flow as Linux — it auto-detects the macOS Qt kit
+(`~/Qt/<ver>/macos`):
+
+```bash
+./build.sh              # debug
+./build.sh release run  # release, then launch qrreader.app
+```
+
+You need:
+
+- **Xcode 16 or newer.** `xcode-select --install` gives the command-line tools,
+  but ZXing needs a full recent Xcode: older Xcode 15.x ships a Clang without
+  C++20 *parenthesized aggregate initialization* and fails to compile ZXing with
+  `no matching function for call to 'construct_at'`.
+- **Qt 6.10+ for macOS** with the **Multimedia** module, from the Qt online
+  installer or `aqt`. If it isn't at the default path, point the script at it:
+  `QT_DIR=~/Qt/6.10.3/macos ./build.sh`.
+- **Ninja** (`brew install ninja`) — used as the build generator.
+
+Apple-specific behaviour, handled in [CMakeLists.txt](CMakeLists.txt):
+
+- The app is built as a **`.app` bundle**. macOS is case-insensitive, so a bare
+  `qrreader` binary would collide with the `QrReader/` QML module folder; the
+  bundle (`qrreader.app`) avoids that and is the correct form for a GUI app.
+- The **FFmpeg multimedia backend is excluded**; Apple builds use the native
+  **darwin (AVFoundation)** backend. Qt's iOS package ships only the FFmpeg
+  plugin stub without the FFmpeg libraries, which otherwise breaks the link with
+  hundreds of undefined `_av_*` symbols.
+- **To use the camera at runtime**, the bundle needs an `NSCameraUsageDescription`
+  key in its `Info.plist`, or macOS/iOS terminates it on first camera access.
+  This isn't wired up yet — add it before shipping a runnable build.
+
 ## Signing an Android release
 
 Android only installs/publishes a **signed** APK/AAB. Debug builds use a

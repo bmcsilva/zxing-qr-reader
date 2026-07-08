@@ -44,8 +44,14 @@ qt_add_executable(QrReader
 )
 
 # The "QrReader" module URI creates a QrReader/ folder in the build tree, which
-# would clash with an executable of the same name, so rename the binary.
+# would clash with an executable of the same name, so rename the binary. On
+# Apple's case-insensitive filesystem "qrreader" still collides with QrReader/,
+# so build a .app bundle there (qrreader.app is distinct, and a bundle is the
+# correct form for a macOS/iOS GUI app anyway).
 set_target_properties(QrReader PROPERTIES OUTPUT_NAME qrreader)
+if(APPLE)
+    set_target_properties(QrReader PROPERTIES MACOSX_BUNDLE TRUE)
+endif()
 
 # ---- Android packaging ----
 # The android/ folder provides the launcher icon and app name. The CAMERA
@@ -96,6 +102,16 @@ target_link_libraries(QrReader PRIVATE
     Qt6::Multimedia
     ZXing::ZXing
 )
+
+# ---- Apple multimedia backend ----
+# On iOS/macOS Qt 6.8+ defaults to the FFmpeg media backend, but the official
+# Qt for iOS package ships the plugin stub without the FFmpeg libraries, so the
+# link fails with hundreds of undefined _av_* symbols. The app only needs the
+# camera, which the native darwin (AVFoundation) backend fully covers, so drop
+# the FFmpeg plugin from the link on Apple platforms.
+if(APPLE)
+    qt_import_plugins(QrReader EXCLUDE Qt6::QFFmpegMediaPlugin)
+endif()
 
 # ---- Translations ----
 # Compiles the .ts files to .qm and embeds them under qrc:/i18n. main.cpp then
