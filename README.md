@@ -28,24 +28,25 @@ For **Android**, open the folder in **Qt Creator**, pick an Android kit, and Run
 
 ## Building on macOS
 
-Same `build.sh` flow as Linux — it auto-detects the macOS Qt kit
-(`~/Qt/<ver>/macos`):
+On a fresh Mac, [setup-macos.sh](setup-macos.sh) installs the whole toolchain
+(Homebrew, Ninja, `aqt`) and Qt with the Multimedia module — then `build.sh`
+works exactly as on Linux (it auto-detects the `~/Qt/<ver>/macos` kit):
 
 ```bash
+./setup-macos.sh        # one-time environment setup (skips what's present)
 ./build.sh              # debug
 ./build.sh release run  # release, then launch qrreader.app
 ```
 
-You need:
+The setup script needs **Xcode 16 or newer** already installed from the App
+Store. `xcode-select --install` only gives the command-line tools, but ZXing
+needs a full recent Xcode: older Xcode 15.x ships a Clang without C++20
+*parenthesized aggregate initialization* and fails to compile ZXing with
+`no matching function for call to 'construct_at'`.
 
-- **Xcode 16 or newer.** `xcode-select --install` gives the command-line tools,
-  but ZXing needs a full recent Xcode: older Xcode 15.x ships a Clang without
-  C++20 *parenthesized aggregate initialization* and fails to compile ZXing with
-  `no matching function for call to 'construct_at'`.
-- **Qt 6.10+ for macOS** with the **Multimedia** module, from the Qt online
-  installer or `aqt`. If it isn't at the default path, point the script at it:
-  `QT_DIR=~/Qt/6.10.3/macos ./build.sh`.
-- **Ninja** (`brew install ninja`) — used as the build generator.
+Prefer to install Qt yourself (e.g. via the Qt online installer)? Make sure the
+**Multimedia** module is included, and point `build.sh` at it if it isn't at the
+default path: `QT_DIR=~/Qt/6.10.3/macos ./build.sh`.
 
 Apple-specific behaviour, handled in [CMakeLists.txt](CMakeLists.txt):
 
@@ -56,9 +57,11 @@ Apple-specific behaviour, handled in [CMakeLists.txt](CMakeLists.txt):
   **darwin (AVFoundation)** backend. Qt's iOS package ships only the FFmpeg
   plugin stub without the FFmpeg libraries, which otherwise breaks the link with
   hundreds of undefined `_av_*` symbols.
-- **To use the camera at runtime**, the bundle needs an `NSCameraUsageDescription`
-  key in its `Info.plist`, or macOS/iOS terminates it on first camera access.
-  This isn't wired up yet — add it before shipping a runnable build.
+- **Camera permission** is declared via a custom `Info.plist`
+  ([platform/Info.macos.plist.in](platform/Info.macos.plist.in)) carrying
+  `NSCameraUsageDescription`; without it macOS terminates the app on first camera
+  access. iOS needs its own `Info.plist` (different required keys) and isn't
+  wired up yet.
 
 ## Signing an Android release
 
