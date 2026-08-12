@@ -2,12 +2,12 @@ cmake_minimum_required(VERSION 3.21)
 
 project(QrReader VERSION 1.0 LANGUAGES CXX)
 
-# A VM de macOS nao consegue iniciar sessao na conta Apple (atestacao de
-# hardware), logo nao ha equipa de programador e o Xcode recusa assinar.
-# Compila-se sem assinatura; quem assina e o AltServer, no Linux.
-# Tem de ficar ANTES do FetchContent_MakeAvailable, senao o alvo ZXing
-# e criado sem estas definicoes e falha na mesma.
-if(IOS)
+# The macOS VM cannot sign in to an Apple account (hardware attestation), so
+# there is no development team and Xcode refuses to sign. Build unsigned here;
+# the signing is done afterwards by AltServer, on Linux.
+# This must come BEFORE FetchContent_MakeAvailable, otherwise the ZXing target
+# is created without these settings and the build fails anyway.
+if(IOS AND NOT CMAKE_XCODE_ATTRIBUTE_DEVELOPMENT_TEAM)
     set(CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO")
     set(CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO")
     set(CMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "")

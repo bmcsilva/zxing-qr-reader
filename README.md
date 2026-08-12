@@ -21,8 +21,10 @@ configure + build steps for you:
 ./build.sh debug run    # build, then launch
 ```
 
-If your Qt kit isn't at `~/Qt/6.10.3/gcc_64`, point the script at it:
-`QT_DIR=~/Qt/<ver>/gcc_64 ./build.sh`.
+The script picks the newest kit it finds under `~/Qt` for the platform you are
+building for. To use a different one, point it there explicitly:
+`QT_DIR=~/Qt/<ver>/gcc_64 ./build.sh` (or set `QT_BASE` if your Qt versions
+don't live in `~/Qt`).
 
 For **Android**, open the folder in **Qt Creator**, pick an Android kit, and Run.
 
@@ -45,8 +47,9 @@ needs a full recent Xcode: older Xcode 15.x ships a Clang without C++20
 `no matching function for call to 'construct_at'`.
 
 Prefer to install Qt yourself (e.g. via the Qt online installer)? Make sure the
-**Multimedia** module is included, and point `build.sh` at it if it isn't at the
-default path: `QT_DIR=~/Qt/6.10.3/macos ./build.sh`.
+**Multimedia** module is included. `build.sh` also adds the `cmake` and `ninja`
+that Qt ships under `~/Qt/Tools` to the PATH when the system has none of its
+own, which is the usual case on a machine set up only with Qt Creator.
 
 Apple-specific behaviour, handled in [CMakeLists.txt](CMakeLists.txt):
 
@@ -57,11 +60,57 @@ Apple-specific behaviour, handled in [CMakeLists.txt](CMakeLists.txt):
   **darwin (AVFoundation)** backend. Qt's iOS package ships only the FFmpeg
   plugin stub without the FFmpeg libraries, which otherwise breaks the link with
   hundreds of undefined `_av_*` symbols.
-- **Camera permission** is declared via a custom `Info.plist`
-  ([platform/Info.macos.plist.in](platform/Info.macos.plist.in)) carrying
-  `NSCameraUsageDescription`; without it macOS terminates the app on first camera
-  access. iOS needs its own `Info.plist` (different required keys) and isn't
-  wired up yet.
+- **Camera permission** is declared via a custom `Info.plist` carrying
+  `NSCameraUsageDescription`; without it the OS terminates the app on first
+  camera access. macOS and iOS need different keys, so they get one each:
+  [platform/Info.macos.plist.in](platform/Info.macos.plist.in) and
+  [platform/Info.ios.plist.in](platform/Info.ios.plist.in).
+
+## Building for iOS
+
+`build.sh` drives the iOS build too (`INSTALL_IOS=1 ./setup-macos.sh` installs
+the kit). It uses the Xcode generator, which is what produces the `.app` bundle
+and compiles the launch storyboard:
+
+```bash
+./build.sh ios              # device build (unsigned), Debug
+./build.sh ios release      # device build, Release
+./build.sh ios simulator    # build against the simulator SDK
+./build.sh ios sim run      # ... and install + launch it in the simulator
+```
+
+Because the iOS kit only ships the target libraries, the build also needs the
+**desktop** kit for the host-side tools (`moc`, `rcc`, `qmlcachegen`);
+`build.sh` finds it next to the iOS kit and passes it as `QT_HOST_PATH`. The
+path baked into the kit at packaging time does not exist on your machine, so
+without this the configure step fails.
+
+Three more things have to be in place, or the build fails before it produces an
+`.app`:
+
+- **Signing, or the choice to skip it.** By default the build is left
+  **unsigned** — enough to check that the code compiles, and what a build meant
+  for sideloading with AltServer wants. To sign instead, pass a development
+  team: `IOS_TEAM=ABCDE12345 ./build.sh ios release`. Sign in under *Xcode →
+  Settings → Accounts* with any Apple ID first; a free personal team is enough
+  for running on your own device.
+
+- **Xcode's iOS platform component.** The iOS SDK alone is not enough: `ibtool`
+  compiles the launch storyboard and fails with `iOS <version> Platform Not
+  Installed` without it. Install it once with `xcodebuild -downloadPlatform iOS`
+  (several GB). `build.sh` checks for it and says so up front.
+
+- **A source path with no spaces.** Qt's `lrelease` step splits the path on
+  whitespace and dies with `Cannot open <path-up-to-the-space>: file to open is
+  a directory`, leaving a stray folder named after the rest of the path.
+  `build.sh` refuses to start in such a path.
+
+Qt Creator also works: open the folder, pick the **iOS** kit, and Build (set the
+development team under *Projects → iOS kit → Build*).
+
+> Recent Qt targets **iOS 17 or newer** (`CMAKE_OSX_DEPLOYMENT_TARGET` is pinned
+> by the Qt kit), so the app will not install on devices that stop at iOS 15 or
+> 16 — an iPhone 7/7 Plus, for example.
 
 ## Signing an Android release
 

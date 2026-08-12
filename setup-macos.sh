@@ -82,6 +82,10 @@ echo
 echo ">> Done. Build with:"
 echo "     ./build.sh              # debug"
 echo "     ./build.sh release run  # release, then launch qrreader.app"
+if [[ "${INSTALL_IOS:-0}" == "1" ]]; then
+    echo "     ./build.sh ios          # iOS device build (unsigned)"
+    echo "     ./build.sh ios sim run  # build and run in the simulator"
+fi
 if [[ "$QT_BASE" != "$HOME/Qt" ]]; then
     echo "   (non-default QT_BASE: pass QT_DIR=$QT_BASE/$QT_VERSION/macos to build.sh)"
 fi
