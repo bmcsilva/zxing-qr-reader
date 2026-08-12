@@ -2,6 +2,17 @@ cmake_minimum_required(VERSION 3.21)
 
 project(QrReader VERSION 1.0 LANGUAGES CXX)
 
+# A VM de macOS nao consegue iniciar sessao na conta Apple (atestacao de
+# hardware), logo nao ha equipa de programador e o Xcode recusa assinar.
+# Compila-se sem assinatura; quem assina e o AltServer, no Linux.
+# Tem de ficar ANTES do FetchContent_MakeAvailable, senao o alvo ZXing
+# e criado sem estas definicoes e falha na mesma.
+if(IOS)
+    set(CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO")
+    set(CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO")
+    set(CMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "")
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -59,9 +70,13 @@ if(APPLE)
         MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
     )
     # Camera access needs an NSCameraUsageDescription in the bundle's Info.plist
-    # or macOS/iOS kills the app on first use. macOS and iOS need different
-    # plists (iOS has its own required keys), so only macOS is wired up here.
-    if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    # or macOS/iOS kills the app on first use. iOS additionally requires its own
+    # keys (LSRequiresIPhoneOS, a launch storyboard, orientations), so the two
+    # platforms get separate plists.
+    if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        set_target_properties(QrReader PROPERTIES
+            MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/platform/Info.ios.plist.in")
+    else()
         set_target_properties(QrReader PROPERTIES
             MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/platform/Info.macos.plist.in")
     endif()
