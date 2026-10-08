@@ -256,3 +256,19 @@ The desktop packages can also be made locally: after a release build,
 `cmake --install build-release --prefix <dir>` lays out the app with the Qt
 libraries it needs, and on Windows and macOS `cpack` (run in `build-release`)
 makes the installer, ZIP or DMG.
+
+## License
+
+[GPL-3.0](LICENSE). You may use, study, change and share the code; whoever
+distributes it, changed or not, must do so under the same license and with
+the source code.
+
+The license covers the code, not the app's identity: as GPLv3 section 7(e)
+allows, it grants no rights to the name *QR Scanner*, the app icon or the
+Android id `com.brunosilva.qrreader`. A build you publish yourself must use its
+own name, icon and id.
+
+Third-party components keep their own licenses: [Qt](https://www.qt.io/licensing/)
+(LGPLv3), [FFmpeg](https://ffmpeg.org/legal.html) (LGPL 2.1+, through Qt
+Multimedia on Android, Windows and Linux) and
+[ZXing-cpp](https://github.com/zxing-cpp/zxing-cpp) (Apache-2.0).
