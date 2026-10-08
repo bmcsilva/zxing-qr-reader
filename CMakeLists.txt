@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.28)
 
 # The release version. Bump it before tagging a release (the tag must match,
 # e.g. v1.0.0); the Android version code is derived from it.
-project(QrReader VERSION 1.0.0 LANGUAGES CXX)
+project(QrReader VERSION 1.0.1 LANGUAGES CXX)
 
 # The macOS VM cannot sign in to an Apple account (hardware attestation), so
 # there is no development team and Xcode refuses to sign. Build unsigned here;
@@ -93,8 +93,19 @@ endif()
 # permission itself is still injected automatically by linking Qt6::Multimedia
 # (the manifest just keeps the %%INSERT_PERMISSIONS%% placeholder for it).
 if(ANDROID)
-    set_property(TARGET QrReader PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
-        ${CMAKE_CURRENT_SOURCE_DIR}/android)
+    # The APK also carries the license texts, as assets. Qt takes the whole
+    # package template from one folder, so put android/ and the licenses
+    # together in the build tree (again whenever a file in android/ changes).
+    set(android_dir ${CMAKE_CURRENT_BINARY_DIR}/android-package)
+    file(GLOB_RECURSE android_files android/*)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${android_files})
+    file(COPY android/ DESTINATION ${android_dir})
+    file(COPY licenses/ DESTINATION ${android_dir}/assets/licenses)
+    file(COPY_FILE ${CMAKE_CURRENT_SOURCE_DIR}/LICENSE
+        ${android_dir}/assets/licenses/GPL-3.0.txt)
+    file(COPY_FILE ${zxing_cpp_SOURCE_DIR}/LICENSE
+        ${android_dir}/assets/licenses/ZXing-cpp-LICENSE.txt)
+    set_property(TARGET QrReader PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR ${android_dir})
     set_property(TARGET QrReader PROPERTY QT_ANDROID_MIN_SDK_VERSION 28)
     set_property(TARGET QrReader PROPERTY QT_ANDROID_TARGET_SDK_VERSION 34)
     # Must grow with every release, or Android refuses the update:
@@ -180,6 +191,18 @@ if(NOT ANDROID AND NOT IOS)
     endif()
 
     install(TARGETS QrReader BUNDLE DESTINATION . RUNTIME DESTINATION bin)
+
+    # License texts of the app and of everything bundled with it. On macOS
+    # they go inside the bundle, before it is signed below.
+    if(APPLE)
+        set(licenses_dir qrreader.app/Contents/Resources/licenses)
+    else()
+        set(licenses_dir licenses)
+    endif()
+    install(DIRECTORY licenses/ DESTINATION ${licenses_dir})
+    install(FILES LICENSE DESTINATION ${licenses_dir} RENAME GPL-3.0.txt)
+    install(FILES ${zxing_cpp_SOURCE_DIR}/LICENSE DESTINATION ${licenses_dir}
+        RENAME ZXing-cpp-LICENSE.txt)
     qt_generate_deploy_qml_app_script(TARGET QrReader OUTPUT_SCRIPT deploy_script)
     install(SCRIPT ${deploy_script})
 

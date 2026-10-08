@@ -266,3 +266,7 @@ Third-party components keep their own licenses: [Qt](https://www.qt.io/licensing
 (LGPLv3), [FFmpeg](https://ffmpeg.org/legal.html) (LGPL 2.1+, through Qt
 Multimedia on Android, Windows and Linux) and
 [ZXing-cpp](https://github.com/zxing-cpp/zxing-cpp) (Apache-2.0).
+Every package carries their license texts, listed in
+[licenses/THIRD-PARTY.txt](licenses/THIRD-PARTY.txt): in a `licenses` folder
+next to the app on Windows and Linux, in `Contents/Resources/licenses` inside
+the macOS app, and in `assets/licenses` inside the APK.

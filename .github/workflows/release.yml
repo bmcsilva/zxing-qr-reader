@@ -103,6 +103,7 @@ jobs:
           # Qt's xcb plugin needs libxcb-cursor, which a stock Ubuntu 22.04
           # does not have. Everything else comes from the Qt deployment.
           cp -L /usr/lib/x86_64-linux-gnu/libxcb-cursor.so.0 AppDir/usr/lib/
+          cp /usr/share/doc/libxcb-cursor0/copyright AppDir/usr/licenses/libxcb-cursor.txt
           cp platform/qrreader.desktop AppDir/
           cp icon/appicon.png AppDir/qrreader.png
           # The binary's RUNPATH already points at ../lib, so AppRun can be the
