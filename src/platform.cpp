@@ -1,6 +1,8 @@
 #include "platform.h"
 
+#include <QFileInfo>
 #include <QGuiApplication>
+#include <QUrl>
 
 Platform::Platform(QObject *parent)
     : QObject(parent)
@@ -19,6 +21,15 @@ bool Platform::debugBuild() const
 #else
     return false;
 #endif
+}
+
+QString Platform::scanFile() const
+{
+    const QStringList args = QCoreApplication::arguments();
+    const qsizetype i = args.indexOf(QStringLiteral("--scan-file"));
+    if (!debugBuild() || i < 0 || i + 1 >= args.size())
+        return {};
+    return QUrl::fromLocalFile(QFileInfo(args.at(i + 1)).absoluteFilePath()).toString();
 }
 
 void Platform::requestCamera()

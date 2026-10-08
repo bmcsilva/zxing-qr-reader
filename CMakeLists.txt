@@ -1,6 +1,8 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.28)
 
-project(QrReader VERSION 1.0 LANGUAGES CXX)
+# The release version. Bump it before tagging a release (the tag must match,
+# e.g. v1.0.0); the Android version code is derived from it.
+project(QrReader VERSION 1.0.0 LANGUAGES CXX)
 
 # The macOS VM cannot sign in to an Apple account (hardware attestation), so
 # there is no development team and Xcode refuses to sign. Build unsigned here;
@@ -28,11 +30,15 @@ set(_QRR_PREV_CXX_STANDARD ${CMAKE_CXX_STANDARD})
 set(_QRR_PREV_AUTOMOC ${CMAKE_AUTOMOC})
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_AUTOMOC OFF)
+# Linked statically, and EXCLUDE_FROM_ALL keeps ZXing's own install() rules
+# (headers, CMake config) out of the packages.
 FetchContent_Declare(
     zxing_cpp
     URL https://github.com/bmcsilva/zxing-cpp/archive/refs/heads/master.zip
     DOWNLOAD_EXTRACT_TIMESTAMP true
+    EXCLUDE_FROM_ALL
 )
+set(BUILD_SHARED_LIBS OFF)
 set(ZXING_READERS ON CACHE STRING "" FORCE)
 set(ZXING_WRITERS OFF CACHE STRING "" FORCE)
 set(ZXING_USE_BUNDLED_ZINT OFF CACHE BOOL "" FORCE)
@@ -91,7 +97,16 @@ if(ANDROID)
         ${CMAKE_CURRENT_SOURCE_DIR}/android)
     set_property(TARGET QrReader PROPERTY QT_ANDROID_MIN_SDK_VERSION 28)
     set_property(TARGET QrReader PROPERTY QT_ANDROID_TARGET_SDK_VERSION 34)
+    # Must grow with every release, or Android refuses the update:
+    # 1.2.3 -> 10203.
+    math(EXPR version_code
+        "${PROJECT_VERSION_MAJOR} * 10000 + ${PROJECT_VERSION_MINOR} * 100 + ${PROJECT_VERSION_PATCH}")
+    set_property(TARGET QrReader PROPERTY QT_ANDROID_VERSION_CODE ${version_code})
+    set_property(TARGET QrReader PROPERTY QT_ANDROID_VERSION_NAME ${PROJECT_VERSION})
 endif()
+
+# Without this Windows opens a console window next to the app.
+set_target_properties(QrReader PROPERTIES WIN32_EXECUTABLE TRUE)
 
 # App icon shown in the desktop window title bar / task switcher.
 qt_add_resources(QrReader "appicon"
@@ -153,3 +168,46 @@ qt_add_translations(QrReader
         i18n/QrReader_en_GB.ts
     RESOURCE_PREFIX "/i18n"
 )
+
+# ---- Desktop packages ----
+# `cmake --install` lays out the app together with the Qt libraries, plugins
+# and QML modules it uses (windeployqt / macdeployqt / Qt's Linux deployer).
+# CPack then wraps that: an installer and a ZIP on Windows, a DMG on macOS.
+# Linux is packed as an AppImage by the release workflow.
+if(NOT ANDROID AND NOT IOS)
+    if(WIN32)
+        target_sources(QrReader PRIVATE platform/appicon.rc)   # .exe icon
+    endif()
+
+    install(TARGETS QrReader BUNDLE DESTINATION . RUNTIME DESTINATION bin)
+    qt_generate_deploy_qml_app_script(TARGET QrReader OUTPUT_SCRIPT deploy_script)
+    install(SCRIPT ${deploy_script})
+
+    if(APPLE)
+        # macdeployqt rewrites the binaries, which breaks their signature, and
+        # Apple Silicon refuses to run unsigned code: re-sign ad hoc.
+        install(CODE [[
+            execute_process(COMMAND codesign --force --deep --sign -
+                "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/qrreader.app" COMMAND_ERROR_IS_FATAL ANY)
+        ]])
+    endif()
+
+    if(WIN32)
+        include(InstallRequiredSystemLibraries)   # MSVC runtime DLLs
+    endif()
+
+    set(CPACK_PACKAGE_NAME "QrReader")
+    set(CPACK_PACKAGE_VENDOR "Bruno Silva")
+    set(CPACK_PACKAGE_INSTALL_DIRECTORY "QR Scanner")
+    set(CPACK_PACKAGE_EXECUTABLES "qrreader" "QR Scanner")   # Start menu entry
+    set(CPACK_NSIS_MUI_ICON "${CMAKE_CURRENT_SOURCE_DIR}/platform/appicon.ico")
+    set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\\\qrreader.exe")
+    set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+    if(WIN32)
+        set(CPACK_GENERATOR NSIS ZIP)
+    elseif(APPLE)
+        set(CPACK_GENERATOR DragNDrop)
+        set(CPACK_SYSTEM_NAME macos)   # file name: QrReader-<ver>-macos.dmg
+    endif()
+    include(CPack)
+endif()

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=QR Scanner
+Comment=Scan QR codes and see their full content
+Exec=qrreader
+Icon=qrreader
+Categories=Utility;
+Terminal=false

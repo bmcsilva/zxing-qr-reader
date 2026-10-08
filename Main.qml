@@ -192,12 +192,22 @@ ApplicationWindow {
 
         Camera {
             id: camera
-            active: Platform.cameraGranted && root.screen === "scan" && root.visible
+            active: Platform.cameraGranted && !Platform.scanFile && root.screen === "scan" && root.visible
+        }
+
+        // Debug only: `--scan-file <file>` loops an image or video into the
+        // viewfinder instead, so the real decoder runs without a camera.
+        // A video sink takes one source at a time, so only one gets "preview".
+        MediaPlayer {
+            source: Platform.scanFile
+            videoOutput: Platform.scanFile ? preview : null
+            loops: MediaPlayer.Infinite
+            Component.onCompleted: if (Platform.scanFile) play()
         }
 
         CaptureSession {
             camera: camera
-            videoOutput: preview
+            videoOutput: Platform.scanFile ? null : preview
         }
 
         VideoOutput {

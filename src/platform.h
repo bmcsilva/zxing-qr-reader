@@ -10,7 +10,9 @@
 
 // Small bridge for the platform details the QML side needs to know about:
 //   - whether the camera permission has been granted;
-//   - whether this is a debug build (used to enable the F5 demo shortcut).
+//   - whether this is a debug build (used to enable the F5 demo shortcut);
+//   - the file given with `--scan-file <image or video>` (debug builds only),
+//     played into the viewfinder instead of the camera.
 //
 // Asking the operating system for the camera is a platform concern, so it
 // lives here in C++. On desktop there is usually nothing to ask and access is
@@ -23,12 +25,14 @@ class Platform : public QObject
     QML_SINGLETON
     Q_PROPERTY(bool cameraGranted READ cameraGranted NOTIFY cameraGrantedChanged)
     Q_PROPERTY(bool debugBuild READ debugBuild CONSTANT)
+    Q_PROPERTY(QString scanFile READ scanFile CONSTANT)
 
 public:
     explicit Platform(QObject *parent = nullptr);
 
     bool cameraGranted() const;
     bool debugBuild() const;
+    QString scanFile() const;
 
     // Asks for the camera permission if we do not already have it.
     Q_INVOKABLE void requestCamera();

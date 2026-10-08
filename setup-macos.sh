@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Bootstrap a fresh macOS machine to build this app: installs the toolchain
-# (Homebrew, Ninja, aqtinstall) and Qt with the Multimedia module, so that
+# (Homebrew, CMake, Ninja, aqtinstall) and Qt with the Multimedia module, so that
 # ./build.sh works afterwards. Safe to re-run — each step is skipped when it is
 # already satisfied.
 #
@@ -50,7 +50,8 @@ if ! command -v brew >/dev/null 2>&1; then
 fi
 
 # ---- Build tools ----------------------------------------------------------
-echo ">> Installing Ninja + pipx"
+echo ">> Installing CMake, Ninja + pipx"
+brew list cmake >/dev/null 2>&1 || brew install cmake
 brew list ninja >/dev/null 2>&1 || brew install ninja
 brew list pipx  >/dev/null 2>&1 || brew install pipx
 pipx ensurepath >/dev/null 2>&1 || true
