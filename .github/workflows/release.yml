@@ -96,7 +96,8 @@ jobs:
         run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR"
           cmake --build build -j
-          cmake --install build --prefix AppDir/usr
+          # Qt's QML deployment needs an absolute prefix.
+          cmake --install build --prefix "$PWD/AppDir/usr"
       - name: Package as AppImage
         run: |
           # Qt's xcb plugin needs libxcb-cursor, which a stock Ubuntu 22.04
@@ -135,7 +136,9 @@ jobs:
           arch: android_arm64_v8a
           modules: qtmultimedia
           cache: true
-      - run: yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION" > /dev/null
+      # `yes` fails with "Broken pipe" once sdkmanager exits, which pipefail
+      # would count as a failure; only sdkmanager's own status matters.
+      - run: (yes || true) | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION" > /dev/null
       - name: Restore the signing keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
