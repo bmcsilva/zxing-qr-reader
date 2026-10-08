@@ -139,22 +139,19 @@ jobs:
       # `yes` fails with "Broken pipe" once sdkmanager exits, which pipefail
       # would count as a failure; only sdkmanager's own status matters.
       - run: (yes || true) | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION" > /dev/null
-      - name: Restore the signing keystore
-        env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          if [[ -z "$KEYSTORE_BASE64" ]]; then
-            echo "::error::The ANDROID_KEYSTORE_* repository secrets are not set (see README, 'Releasing')."
-            exit 1
-          fi
-          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+      # Signed with a key made for this build. Android only updates an app
+      # signed with the same key, so a newer APK cannot update this one: it
+      # has to be uninstalled first.
       - name: Build signed APK
         env:
-          QT_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/release.keystore
-          QT_ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
-          QT_ANDROID_KEYSTORE_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          QT_ANDROID_KEYSTORE_KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          QT_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/build.keystore
+          QT_ANDROID_KEYSTORE_ALIAS: qrreader
+          QT_ANDROID_KEYSTORE_STORE_PASS: qrreader
+          QT_ANDROID_KEYSTORE_KEY_PASS: qrreader
         run: |
+          keytool -genkeypair -keystore "$QT_ANDROID_KEYSTORE_PATH" -alias qrreader \
+            -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=QR Scanner" \
+            -storepass qrreader -keypass qrreader
           "$QT_ROOT_DIR/bin/qt-cmake" -S . -B build -DCMAKE_BUILD_TYPE=Release \
             -DANDROID_SDK_ROOT="$ANDROID_SDK_ROOT" \
             -DANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/$NDK_VERSION" \

@@ -41,7 +41,7 @@ Ready-to-run packages are on the
 | Windows 10/11 (64-bit) | `QrReader-<ver>-win64.exe` (installer)<br>`QrReader-<ver>-win64.zip` (portable) | Not code-signed: SmartScreen warns on first run → *More info* → *Run anyway*. |
 | macOS 13+ (Apple Silicon and Intel) | `QrReader-<ver>-macos.dmg` | Not notarized: the first launch is blocked → *System Settings → Privacy & Security* → *Open Anyway*. |
 | Linux (Ubuntu 22.04+ and similar) | `QrReader-<ver>-x86_64.AppImage` | `chmod +x` it and run it. |
-| Android 9+ (64-bit ARM) | `QrReader-<ver>-android-arm64.apk` | Allow your browser or file manager to install apps. |
+| Android 9+ (64-bit ARM) | `QrReader-<ver>-android-arm64.apk` | Allow your browser or file manager to install apps. If another copy of the app is installed, uninstall it first. |
 
 There is no iOS download: installing outside the App Store needs a build signed
 for your own device (see [Building for iOS](#building-for-ios)).
@@ -242,15 +242,9 @@ GitHub's runners and publishes them as a GitHub Release:
 To test the builds without publishing, run the workflow by hand (*Actions →
 Release → Run workflow*); the packages are then kept as workflow artifacts.
 
-The Android job signs the APK with the release keystore, which it reads from
-four repository secrets (*Settings → Secrets and variables → Actions*):
-
-| Secret | Value |
-|---|---|
-| `ANDROID_KEYSTORE_BASE64` | the keystore file, as `base64 -w0 ~/keys/qrreader-release.keystore` prints it |
-| `ANDROID_KEYSTORE_ALIAS` | the key alias (`qrreader` in the example above) |
-| `ANDROID_KEYSTORE_PASSWORD` | the keystore password |
-| `ANDROID_KEY_PASSWORD` | the key password (the same one, unless you set it apart) |
+The Android job signs the APK with a key generated for that build, so it needs
+no secrets. Android only updates an app signed with the same key, so an APK
+from one build cannot update an APK from another: uninstall the old one first.
 
 The desktop packages can also be made locally: after a release build,
 `cmake --install build-release --prefix <dir>` lays out the app with the Qt
